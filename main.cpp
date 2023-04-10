@@ -1,35 +1,4 @@
 #include "Utils.h"
-#include "Structures.h"
-
-std::vector<std::string> readLines()
-{
-    std::vector<std::string> lines;
-    for (std::string buffer; std::getline(std::cin, buffer);) {
-        lines.push_back(buffer);
-    }
-
-    return lines;
-}
-
-std::vector<SIpV4> toIpV4(std::vector<std::string> &lines)
-{
-    std::vector<SIpV4> listIpV4;
-    for (auto &i : lines) {
-        normalizeLine(i);
-
-        auto it = std::find_if(i.cbegin(), i.cend(), [](const char ch) -> bool {
-            return ch == '\t';
-        });
-
-        if (it == i.cend())
-            throw std::logic_error("not found ip address in line");
-
-        auto ipv4 = SIpV4::fromString(std::string(i.cbegin(), it));
-        listIpV4.push_back(ipv4);
-    }
-
-    return listIpV4;
-}
 
 int main(int, char**) {   
     try {

@@ -1,40 +1,35 @@
 #include "Utils.h"
+#include "Matrix.h"
+
+static constexpr auto kRowsMax = 10;
+static constexpr auto kColsMax = kRowsMax;
 
 int main(int, char**) {   
     try {
-        auto lines = readLines();
-        auto listIpV4 = toIpV4(lines);
+        Matrix<int, 0> m;
 
-        // out result
-        std::sort(listIpV4.rbegin(), listIpV4.rend(), SIpV4::comparer);
-
-        std::stringstream ssIp1;            // temp for result
-        std::stringstream ssIp46_70;        // temp for result
-        std::stringstream ssIp46Any;        // temp for result
-
-        const int sz = listIpV4.size();
-        for (int i = 0; i < sz; ++i) {
-            const auto &ip = listIpV4.at(i);
-
-            if (ip.oct1() == 1)
-                ssIp1 << ip << "\n";
-
-            if (ip.oct1() == 46 && ip.oct2() == 70)
-                ssIp46_70 << ip << "\n";
-
-            if (ip.oct1() == 46 || ip.oct2() == 46 || ip.oct3() == 46 || ip.oct4() == 46)
-                ssIp46Any << ip << "\n";
-
-            std::cout << ip << "\n";
+        // заполнение главной и второстепенной диагоналей матрицы
+        {
+            for (auto row = 0, col = kColsMax - 1, colPrimary = 0; row < kRowsMax && col >= 0 && colPrimary < kColsMax; row++, col--, colPrimary++) {
+                m[row][col] = col;
+                m[row][colPrimary] = colPrimary;
+            }
         }
-        
-        auto ssIp1Str = ssIp1.str();
-        auto ssIp46_70Str = ssIp46_70.str();
-        auto ssIp46AnyStr = ssIp46Any.str();
 
-        std::cout   << rtrim(ssIp1Str) << "\n"
-                    << rtrim(ssIp46_70Str) << "\n"
-                    << rtrim(ssIp46AnyStr) << "\n";
+        // вывод фрагмента от [1,1] до [8,8]
+        for (auto row = 1; row <= 8; ++row) {
+            for (auto col = 1; col <= 8; ++col) {
+                std::cout << m[row][col] << " ";
+            }
+
+            std::cout << std::endl;
+        }
+
+        // количество занятых ячеек
+        std::cout << m.size() << std::endl;
+
+        // вывод всех занятых ячеек вместе с их позициями
+
     } catch (std::exception &e) {
         std::cout << e.what() << std::endl;
     }

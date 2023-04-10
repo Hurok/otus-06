@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.8.0)
 
 set(PATCH_VERSION 1 CACHE INTERNAL "Patch version")
 set(PROJECT_VERSION 0.0.${PATCH_VERSION})
@@ -7,7 +7,8 @@ project(task06_matrix VERSION ${PROJECT_VERSION})
 
 set(PROJECT_NAME_TEST ${PROJECT_NAME}_test)
 set(SRC_H   Utils.h Matrix.h)
-set(SRC_CPP Matrix.cpp)
+set(SRC_CPP)
+set_property(TARGET ${PROJECT} PROPERTY CXX_STANDARD 17)
 
 # cli
 add_executable(${PROJECT_NAME} ${SRC_H} ${SRC_CPP} main.cpp)

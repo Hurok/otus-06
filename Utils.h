@@ -55,23 +55,14 @@ inline std::string &trim(std::string &inOut) noexcept {
     return inOut;
 }
 
-inline void normalizeLine(std::string &inOut)
-{
-    auto itRemove = std::remove_if(inOut.begin(), inOut.end(), [](const char ch) -> bool {
-        return ch == '\r' || ch == '\n';
-    });
+template <typename T>
+inline void print(const T &matrix) {
+    for (auto row = 0; row < matrix.rows(); ++row) {
+        for (auto col = 0; col < matrix.cols(); ++col) {
+            std::cout << matrix[row][col] << "\t";
+        }
 
-    if (itRemove != inOut.end())
-        inOut.erase(itRemove, inOut.end());
-
-    const auto countTab = std::accumulate(inOut.cbegin(), inOut.cend(), 0, [](int res, const char ch) -> int {
-        return ch == '\t' ? ++res : res;
-    });
-
-    if (countTab != kTabsInLine) {
-        std::stringstream ss;
-        ss << "invalid \\t count, expected " << kTabsInLine << ", line exists " << countTab;
-        throw std::logic_error(ss.str());
+        std::cout << std::endl;
     }
 }
 

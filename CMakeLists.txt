@@ -6,7 +6,7 @@ set(PROJECT_VERSION 0.0.${PATCH_VERSION})
 project(task06_matrix VERSION ${PROJECT_VERSION})
 
 set(PROJECT_NAME_TEST ${PROJECT_NAME}_test)
-set(SRC_H   Utils.h Matrix.h)
+set(SRC_H Matrix.h)
 set(SRC_CPP)
 set_property(TARGET ${PROJECT} PROPERTY CXX_STANDARD 17)
 
@@ -14,13 +14,19 @@ set_property(TARGET ${PROJECT} PROPERTY CXX_STANDARD 17)
 add_executable(${PROJECT_NAME} ${SRC_H} ${SRC_CPP} main.cpp)
 
 # test
-#add_executable(${PROJECT_NAME_TEST} ${SRC_H} ${SRC_CPP} test_version.cpp)
-#set_target_properties(${PROJECT_NAME_TEST} PROPERTIES COMPILE_DEFINITIONS BOOST_TEST_DYN_LINK INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIR})
-#target_link_libraries(${PROJECT_NAME_TEST} PUBLIC ${Boost_LIBRARIES})
-#arget_include_directories(${PROJECT_NAME_TEST} PRIVATE ${CMAKE_BINARY_DIR})
+include (FetchContent)
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+FetchContent_MakeAvailable(googletest)
 
-#enable_testing()
-#add_test(${PROJECT_NAME_TEST} ${PROJECT_NAME_TEST})
+enable_testing()
+set(SRC_H_TEST ${SRC_H} Matrix_test.h)
+add_executable(${PROJECT_NAME_TEST} ${SRC_H_TEST} main_test.cpp)
+target_link_libraries(${PROJECT_NAME_TEST} GTest::gtest_main)
+include (GoogleTest)
+gtest_discover_tests(${PROJECT_NAME_TEST})
 
 # deb
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)

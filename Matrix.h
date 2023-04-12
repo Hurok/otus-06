@@ -6,7 +6,8 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <iostream>
+#include <optional>
+#include <algorithm>
 
 /*!
  * \brief Описывает позицию элемента матрицы.
@@ -17,6 +18,10 @@ struct MatrixPos {
 
     bool isValid() const noexcept {
         return row >= 0 && col >= 0;
+    }
+
+    bool operator != (const MatrixPos &other) const noexcept {
+        return row != other.row || col != other.col;
     }
 
     bool operator == (const MatrixPos &other) const noexcept {
@@ -31,29 +36,94 @@ struct MatrixPos {
 
 /*!
  * \brief Бесконечная матрица.
+ * \warning Полученные ссылки на элементы матрицы могут стать невалидными после изменения её размерности!
  */
-template <typename T, T DefaultValue = T{}, bool autoSolveUnterminatedValues = false>
+template <typename T, T DefaultValue = T{}, bool autoSolveUndeterminedValues = false>
 class Matrix
 {
+    friend struct MatrixIterator;
+
 public:
+    /*!
+     * \brief Прокси для работы со значением матрицы.
+     */
+    struct ProxyMatrixValue {
+        ProxyMatrixValue() = default;
+        ~ProxyMatrixValue() = default;
+
+        ProxyMatrixValue(const ProxyMatrixValue &other)
+            : m_ref{other.m_ref},
+              m_pos{other.pos()}
+        { }
+
+        ProxyMatrixValue &operator = (const ProxyMatrixValue &other) noexcept {
+            if (this != &other) {
+                m_ref = other.m_ref;
+                m_pos = other.pos();
+            }
+
+            return *this;
+        }
+
+        ProxyMatrixValue(std::optional<std::reference_wrapper<T>> value, const MatrixPos &pos)
+            : m_ref{value},
+              m_pos{pos}
+        { }
+
+        operator const T &() const noexcept {
+            if (m_ref)
+                return (*m_ref).get();
+
+            return m_defaultValue;
+        }
+
+        ProxyMatrixValue &operator = (const T &other) noexcept {
+            if (m_ref)
+                (*m_ref).get() = other;
+
+            return *this;
+        }
+
+        const T &value() const noexcept {
+            if (m_ref)
+                return (*m_ref).get();
+
+            return m_defaultValue;
+        }
+
+        const MatrixPos &pos() const noexcept {
+            return m_pos;
+        }
+
+        bool isNull() const noexcept {
+            return !m_ref.has_value() || *m_ref == DefaultValue;
+        }
+
+    private:
+        std::optional<std::reference_wrapper<T>> m_ref; // имеется ссылка только при валидных итераторах или при обращении без итераторов
+        MatrixPos m_pos;
+        const T m_defaultValue = DefaultValue;
+    };
+
     /*!
      * \brief Прокси для работы с элементами строки матрицы. При запросе несуществующих значений, они будут добавлены в матрицу со значением по умолчанию.
      */
-    struct ProxyMatrixCol {
-        ProxyMatrixCol(std::map<MatrixPos, T> &values, std::set<MatrixPos> &undeterminateValues, int row)
+    struct ProxyMatrixRow {
+        ProxyMatrixRow(std::map<MatrixPos, T> &values, std::set<MatrixPos> &undeterminateValues, int row)
             : m_values(values),
               m_undeterminateValues(undeterminateValues),
               m_row(row)
         { }
 
-        T &operator[](int col) noexcept {
+        ProxyMatrixValue operator[](int col) noexcept {
             MatrixPos pos{m_row, col};
             if (!m_values.count(pos)) {
                 m_values.insert(std::make_pair(pos, DefaultValue));
             }
 
             m_undeterminateValues.insert(pos);
-            return m_values.find(pos)->second;
+            auto it = m_values.find(pos);
+            return ProxyMatrixValue{it->second, it->first};
         }
 
     private:
@@ -65,8 +135,8 @@ public:
     /*!
      * \brief Проксти для работы с элементами строки матрицы без возможности изменения значений.
      */
-    struct ConstProxyMatrixCol {
-        ConstProxyMatrixCol(const std::map<MatrixPos, T> &values, const T &defaultValue, int row)
+    struct ConstProxyMatrixRow {
+        ConstProxyMatrixRow(const std::map<MatrixPos, T> &values, const T &defaultValue, int row)
             : m_values(values),
               m_defaultValue(defaultValue),
               m_row(row)
@@ -87,16 +157,84 @@ public:
         const int m_row;
     };
 
+    /*!
+     * \brief Реализация итератора матрицы через итератор контейнера со значениями. Путь наименьшего сопротивления.
+     */
+    template <typename MapIterator, typename ValueType>
+    struct MatrixIterator : public std::iterator<std::input_iterator_tag, ValueType>
+    {
+        friend Matrix;
+
+        MatrixIterator(const MatrixIterator &other)
+            : m_it(other.m_it)
+        { }
+
+        bool operator != (MatrixIterator const &other) const {
+            return m_it != other.m_it;
+        }
+
+        bool operator == (MatrixIterator const &other) const {
+            return m_it == other.m_it;
+        }
+
+        ValueType &operator *() {
+            return m_it->second;
+        }
+
+        const ValueType &value() const {
+            return m_it->second;
+        }
+
+        const MatrixPos &pos() const {
+            return m_it->first;
+        }
+
+        ValueType *operator ->() {
+            return &m_it->second;
+        }
+
+        MatrixIterator &operator ++() {
+            ++m_it;
+            return *this;
+        }
+
+    private:
+        MatrixIterator(MapIterator it)
+            : m_it{it}
+        { }
+
+        MapIterator m_it;
+    };
+
 public:
     Matrix() = default;
     ~Matrix() = default;
 
-    ConstProxyMatrixCol operator[](int row) const noexcept {
-        return ConstProxyMatrixCol{m_values, m_defaultValue, row};
+    typedef MatrixIterator<typename std::map<MatrixPos, T>::iterator, T> iterator;
+    typedef MatrixIterator<typename std::map<MatrixPos, T>::const_iterator, const T> const_iterator;
+
+    iterator begin() {
+        return iterator{m_values.begin()};
     }
 
-    ProxyMatrixCol operator[](int row) noexcept {
-        return ProxyMatrixCol{m_values, m_undeterminateValues, row};
+    iterator end() {
+        return iterator{m_values.end()};
+    }
+
+    const_iterator cbegin() const {
+        return const_iterator{m_values.cbegin()};
+    }
+
+    const_iterator cend() const {
+        return const_iterator{m_values.cend()};
+    }
+
+    ConstProxyMatrixRow operator[](int row) const noexcept {
+        return ConstProxyMatrixRow{m_values, m_defaultValue, row};
+    }
+
+    ProxyMatrixRow operator[](int row) noexcept {
+        return ProxyMatrixRow{m_values, m_undeterminateValues, row};
     }
 
     /*!
@@ -104,9 +242,15 @@ public:
      */
     void insert(int row, int col, T &&value) noexcept {
         MatrixPos pos{row, col};
-        m_values.insert_or_assign(pos, std::move(value));
-        m_cols = std::max(m_cols, col + 1);
-        m_rows = std::max(m_rows, row + 1);
+        if (value != DefaultValue) {
+            m_values.insert_or_assign(pos, std::move(value));
+            m_cols = std::max(*m_cols, col + 1);
+            m_rows = std::max(*m_rows, row + 1);
+        } else if (m_values.count(pos) > 0) {
+            m_values.erase(m_values.find(pos));
+            m_cols.reset();
+            m_rows.reset();
+        }
     }
 
     /*!
@@ -133,7 +277,10 @@ public:
      */
     int rows() const noexcept {
         solveUndeterminateValues();
-        return m_rows;
+        if (!m_rows)
+            recacheColsRows();
+
+        return *m_rows;
     }
 
     /*!
@@ -141,12 +288,27 @@ public:
      */
     int cols() const noexcept {
         solveUndeterminateValues();
-        return m_cols;
+        if (!m_cols)
+            recacheColsRows();
+
+        return *m_cols;
     }
 
 private:
     /*!
-     * \brief Удаляет нулевые элементы из матрицы, если они там имеются. Удаляются только те элементы, которые были созданы неявно через ProxyMatrixCol.
+     * \brief Обновляет значения количества колонок и строк.
+     */
+    void recacheColsRows() const noexcept {
+        m_rows = 0;
+        m_cols = 0;
+        for (auto it = cbegin(); it != cend(); ++it) {
+            m_rows = std::max(*m_rows, it.pos().row + 1);
+            m_cols = std::max(*m_cols, it.pos().col + 1);
+        }
+    }
+
+    /*!
+     * \brief Удаляет 'нулевые' элементы из матрицы, если они там имеются. Удаляются только те элементы, которые были созданы неявно через ProxyMatrixCol.
      */
     void solveUndeterminateValues() const noexcept {
         if (!m_undeterminateValues.empty()) {
@@ -154,11 +316,10 @@ private:
                 auto it = m_values.find(key);
                 if (it != m_values.end()) {
                     if (it->second == DefaultValue) {
-                        std::cout << "remove " << it->first.row << ":" << it->first.col << " value" << std::endl;
                         m_values.erase(it);
                     } else {
-                        m_cols = std::max(m_cols, it->first.col + 1);
-                        m_rows = std::max(m_rows, it->first.row + 1);
+                        m_cols = std::max(*m_cols, it->first.col + 1);
+                        m_rows = std::max(*m_rows, it->first.row + 1);
                     }
                 }
             }
@@ -170,8 +331,8 @@ private:
 private:
     mutable std::map<MatrixPos, T> m_values;
     const T m_defaultValue = DefaultValue;
-    mutable int m_cols = 0;
-    mutable int m_rows = 0;
+    mutable std::optional<int> m_cols = 0;
+    mutable std::optional<int> m_rows = 0;
     mutable std::set<MatrixPos> m_undeterminateValues;
 };
 

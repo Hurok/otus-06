@@ -1,5 +1,5 @@
-#include "Utils.h"
 #include "Matrix.h"
+#include <iostream>
 
 static constexpr auto kRowsMax = 10;
 static constexpr auto kColsMax = kRowsMax;
@@ -28,7 +28,10 @@ int main(int, char**) {
         // количество занятых ячеек
         std::cout << m.size() << std::endl;
 
-        // вывод всех занятых ячеек вместе с их позициями
+        // вывод всех занятых ячеек вместе с их позициями - через итераторы
+        for (auto it = m.cbegin(); it != m.cend(); ++it) {
+            std::cout << it.pos().row << it.pos().col << it.value() << std::endl;
+        }
 
     } catch (std::exception &e) {
         std::cout << e.what() << std::endl;
